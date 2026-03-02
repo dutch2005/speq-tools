@@ -1,0 +1,44 @@
+# Automatic labeling rules
+# https://github.com/actions/labeler
+
+"ci":
+  - changed-files:
+    - any-glob-to-any-file: ".github/workflows/**"
+
+"dependencies":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "package.json"
+      - "package-lock.json"
+      - ".github/dependabot.yml"
+
+"parser":
+  - changed-files:
+    - any-glob-to-any-file: "src/parser.ts"
+
+"spec":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "src/validator.ts"
+      - "src/context.ts"
+
+"mcp":
+  - changed-files:
+    - any-glob-to-any-file: "src/mcp.ts"
+
+"security":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "src/vault.ts"
+      - "src/global_config.ts"
+      - "SECURITY.md"
+
+"docker":
+  - changed-files:
+    - any-glob-to-any-file: "Dockerfile"
+
+"documentation":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "*.md"
+      - "docs/**"

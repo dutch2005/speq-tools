@@ -1,0 +1,47 @@
+name: SLSA Provenance
+
+on:
+  release:
+    types: [published]
+
+permissions: read-all
+
+jobs:
+  build:
+    name: Build release bundle
+    runs-on: ubuntu-latest
+    outputs:
+      binary-digest: ${{ steps.hash.outputs.hash }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Build bundle
+        run: npm ci && npm run build && npm run bundle
+      - name: Compute hash
+        id: hash
+        run: |
+          sha256sum bundle/index.js > checksums.txt
+          echo "hash=$(base64 -w0 checksums.txt)" >> "$GITHUB_OUTPUT"
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: enthropic-bundle
+          path: |
+            bundle/index.js
+            checksums.txt
+          if-no-files-found: error
+
+  provenance:
+    name: Generate SLSA provenance
+    needs: [build]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@5a775b367a56d5bd118a224a811bba288150a563 # v2.0.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.binary-digest }}
+      upload-assets: true
