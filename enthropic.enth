@@ -8,7 +8,7 @@ PROJECT enthropic-tools
 
   DEPS
     RUNTIME  commander, chalk, @inquirer/prompts, ora, @noble/ciphers
-    DEV      typescript, @types/node, eslint, @typescript-eslint/eslint-plugin, @vercel/ncc
+    DEV      typescript, @types/node, eslint, @typescript-eslint/eslint-plugin, bun
 
 CONTEXT
   DESCRIPTION "CLI toolkit for the Enthropic spec format. Validates .enth files, manages build state, stores secrets encrypted, and provides an AI chat session with the spec as context."

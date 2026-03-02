@@ -8,6 +8,147 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Enthropic-spec/enthropic-tools/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Enthropic-spec/enthropic-tools)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 
+CLI for the [Enthropic](https://github.com/enthropic-spec/enthropic) specification format.  
+True spec-driven development.
+
+## Install
+
+```bash
+npm install -g enthropic
+```
+
+Requires Node.js 20+. No global config, no telemetry.
+
+## Usage
+
+```
+enthropic            # interactive menu
+enthropic setup      # one-time: configure AI provider + API key
+enthropic new        # AI-guided wizard — creates spec, state, vault
+enthropic build      # AI spec consultant — design your .enth through conversation
+enthropic check      # validate + lint — errors and warnings in one view
+enthropic context    # spec + state → AI context block
+enthropic state      # manage build progress
+enthropic vault      # manage encrypted secrets
+enthropic serve      # MCP server (stdio)
+```
+
+## Commands
+
+```bash
+enthropic setup                          # configure provider, API key, model
+
+enthropic new                            # guided project creation
+enthropic build      [file]              # AI conversation to design the spec
+enthropic update     [file]              # refine existing spec with AI
+enthropic reverse    [dir]               # reverse-engineer a codebase into a starter spec
+enthropic open                           # open a project in $EDITOR
+
+enthropic check      [file]              # errors + warnings grouped by severity
+enthropic context    [file]              # spec + state → AI context block
+
+enthropic state      show    [file]
+enthropic state      set <entity> <status> [file]
+
+enthropic vault      set    <KEY>        [file]
+enthropic vault      delete <KEY>        [file]
+enthropic vault      keys                [file]
+enthropic vault      export [--out .env] [file]
+
+enthropic serve                          # MCP server (stdio)
+enthropic delete                         # delete a project
+```
+
+`[file]` defaults to the `.enth` file in `~/.enthropic/workspace/<project>/`.
+
+## MCP
+
+`enthropic serve` implements the [Model Context Protocol](https://modelcontextprotocol.io) over stdio.
+
+**Claude Desktop** — `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "enthropic": {
+      "command": "enthropic",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+**Copilot CLI / Cursor** — `~/.copilot/mcp-config.json` or `.vscode/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "enthropic": {
+      "type": "stdio",
+      "command": "enthropic",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+Once connected, the AI reads your `.enth` automatically. Available tools: `read_spec`, `get_context`, `validate_spec`, `spec_summary`.
+
+## Generated files
+
+`enthropic check` on a valid spec creates three files:
+
+**`state_[name].enth`** — build progress, updated as you work.  
+**`vault_[name].enth`** — secret key names and status (never values).  
+**`.gitignore`** — auto-excludes `state_*.enth`, `vault_*.enth`, `.env`.
+
+Secret values are encrypted with ChaCha20-Poly1305 in `~/.enthropic/[name].secrets`.  
+The encryption key lives at `~/.enthropic/[name].key` (chmod 600). Neither is ever in the repo.
+
+## Security
+
+| What | Where | In repo? |
+|---|---|---|
+| Secret key names | `enthropic.enth` SECRETS block | ✅ yes |
+| Key status (SET / UNSET) | `vault_[name].enth` | ❌ gitignored |
+| Encrypted values | `~/.enthropic/[name].secrets` | ❌ never |
+| Encryption key | `~/.enthropic/[name].key` chmod 600 | ❌ never |
+| API key (BYOK) | `~/.enthropic/global.keys` encrypted | ❌ never |
+
+## Roadmap
+
+#### v0.1.0 ✅
+Parser, validator, check, context, new, build, update, reverse, state, vault, setup, serve, open/delete, MCP server, post-check AI refine, SLSA Level 3, hardened CI.
+
+#### v0.2.0 ✅
+`npm install -g enthropic`, automated release pipeline, npm provenance attestation, dependency review gate.
+
+#### v0.3.0
+- GitHub Action — `enthropic check` as CI step
+- `enthropic watch` — live check on `.enth` save
+- VS Code extension — syntax highlighting, validate on save, inline errors
+- Docker / Homebrew / standalone binaries *(if community demand)*
+
+#### v0.4.0
+- `SECURITY` block — parse and validate `AUTH`, `CORS`, `RATE_LIMIT`, `INPUT_VALIDATION`
+- Validator CVE checks on declared `DEPS`
+- `enthropic audit` — standalone security report
+
+#### v0.5.0+
+- Template library — `enthropic new --template api|saas|cli|worker`
+- Community recipes
+
+## Spec
+
+The `.enth` format is defined in [enthropic/SPEC.md](https://github.com/Enthropic-spec/enthropic/blob/main/SPEC.md).
+
+---
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
+[![Node.js 20+](https://img.shields.io/badge/node-20+-brightgreen.svg)](https://nodejs.org)
+[![npm downloads](https://img.shields.io/npm/dm/enthropic.svg)](https://www.npmjs.com/package/enthropic)
+
+
 CLI for the [Enthropic](https://github.com/enthropic-spec/enthropic) specification.  
 True spec-driven development.
 
