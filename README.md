@@ -19,6 +19,10 @@ npm install -g enthropic
 
 Requires Node.js 20+. No global config, no telemetry.
 
+<!-- screenshots -->
+![enthropic](assets/screen-enth1.png)
+![enthropic](assets/screen-enth2.png)
+
 ## Usage
 
 ```
