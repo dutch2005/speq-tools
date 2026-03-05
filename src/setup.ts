@@ -69,7 +69,7 @@ async function selectModel(provider: string, apiKey: string): Promise<string> {
 export async function run(): Promise<void> {
 
   console.log('  Welcome to Enthropic.\n');
-  console.log('  To use  enthropic build  you need an API key.');
+  console.log('  To use the AI features you need an API key.');
   console.log('  Supported providers:  Anthropic · OpenAI · OpenRouter');
   console.log();
 
@@ -125,6 +125,6 @@ export async function run(): Promise<void> {
     const { run: newWizardRun } = await import('./new_wizard.js');
     await newWizardRun();
   } else {
-    tui.printDim('  Run  enthropic build  from any project folder to start.');
+    tui.printDim('  Run  enthropic  from any folder to get started.');
   }
 }

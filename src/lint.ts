@@ -104,20 +104,5 @@ export function lint(spec: EnthSpec): LintResult[] {
 
   // L5 — reserved (TRANSFORM errors are ERRORs in validator Rule 3)
 
-  // L6 — CONTRACTS qualifier references a quota resource not declared in QUOTAS
-  const declaredQuotas = new Set(spec.quotas.map(q => q.resource));
-  for (const c of spec.contracts) {
-    const words = c.qualifier.match(/\b[a-z][a-z0-9]*\.[a-z][a-z0-9.]*\b/g) ?? [];
-    for (const word of words) {
-      if (!declaredQuotas.has(word)) {
-        results.push({
-          rule: 6,
-          severity: 'WARN',
-          message: `CONTRACTS qualifier for '${c.subject}' references '${word}' which is not declared in QUOTAS`,
-        });
-      }
-    }
-  }
-
   return results;
 }

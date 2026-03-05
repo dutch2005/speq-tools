@@ -3,14 +3,6 @@
 </p>
 
 <p align="center">
-  CLI companion for the <a href="https://github.com/enthropic-spec/enthropic">Enthropic</a> spec format.
-</p>
-
-<p align="center">
-  <a href="https://www.npmjs.com/package/enthropic"><img src="https://img.shields.io/npm/dm/enthropic.svg" alt="npm downloads"/></a>
-</p>
-
-<p align="center">
   <a href="https://github.com/enthropic-spec/enthropic-tools/actions/workflows/ci.yml"><img src="https://github.com/enthropic-spec/enthropic-tools/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
   <a href="https://github.com/enthropic-spec/enthropic-tools/actions/workflows/lint.yml"><img src="https://github.com/enthropic-spec/enthropic-tools/actions/workflows/lint.yml/badge.svg" alt="Lint"/></a>
   <a href="https://github.com/enthropic-spec/enthropic-tools/actions/workflows/codeql.yml"><img src="https://github.com/enthropic-spec/enthropic-tools/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"/></a>
@@ -19,44 +11,21 @@
   <a href="https://slsa.dev"><img src="https://slsa.dev/images/gh-badge-level3.svg" alt="SLSA 3"/></a>
 </p>
 
+<p align="center">
+  CLI companion for the <a href="https://github.com/enthropic-spec/enthropic">Enthropic</a> spec format.
+</p>
+
 ---
 
-A `.enth` file is the architectural contract of your project — entities, constraints, layer boundaries, naming conventions. Write it once. Every AI session reads it before touching a single line of code.
+A `.enth` file is the architectural contract of your project. Entities, constraints, layer boundaries, naming conventions. Write it once. Every AI session reads it before touching a single line of code.
 
 The CLI validates your spec, tracks build progress, and produces the context block you paste into any AI assistant. Have an existing codebase? `enthropic reverse` reads it and generates a starter spec.
-
-<details>
-<summary>Example <code>.enth</code></summary>
-
-```
-VERSION 1.0.0
-
-PROJECT "my-api"
-  LANG    python
-  STACK   fastapi, postgresql, redis
-  ARCH    layered
-
-ENTITY user, session, order
-
-LAYERS
-  API
-    CALLS SERVICE
-  SERVICE
-    CALLS STORAGE
-  STORAGE
-
-CONTRACTS
-  user.password NEVER plaintext
-  admin.*       REQUIRES verified-auth
-```
-
-</details>
 
 ## Install
 
 <p align="center">
   <a href="https://www.npmjs.com/package/enthropic">
-    <img src="https://img.shields.io/badge/npm_install_-g_enthropic-ffafff?style=for-the-badge&labelColor=0f0f1a" alt="npm install -g enthropic"/>
+    <img src="https://img.shields.io/badge/npm_install_--g_enthropic-ffafff?style=for-the-badge&labelColor=cc55cc&color=ffafff" alt="npm install -g enthropic"/>
   </a>
 </p>
 
@@ -70,19 +39,21 @@ Requires Node.js 20+. No telemetry.
 
 ## Commands
 
-| Command | |
+All commands are also available interactively - just run `enthropic`.
+
+| Command | Description |
 |---|---|
-| `enthropic setup` | configure AI provider, API key, model |
-| `enthropic new` | guided project creation |
-| `enthropic build [file]` | AI conversation to design the spec |
+| `enthropic guide` | quick start guide for new users |
+| `enthropic new` | create a new `.enth` spec with AI |
 | `enthropic update [file]` | refine an existing spec with AI |
-| `enthropic reverse [dir]` | *(beta)* reverse-engineer a codebase into a starter spec |
+| `enthropic check [file]` | validate + lint, errors and warnings grouped by severity |
+| `enthropic context [file]` | generate the AI context block from your spec and state |
+| `enthropic state show [file]` | show build progress *(automation in progress)* |
+| `enthropic state set <entity> <status> [file]` | update entity status *(automation in progress)* |
+| `enthropic reverse [dir]` | reverse-engineer a codebase into a starter spec *(in development)* |
 | `enthropic open` | open a project in `$EDITOR` |
-| `enthropic check [file]` | validate + lint — errors and warnings grouped by severity |
-| `enthropic context [file]` | spec + state → AI context block |
-| `enthropic state show [file]` | show build progress |
-| `enthropic state set <entity> <status> [file]` | update entity status |
 | `enthropic delete` | delete a project |
+| `enthropic setup` | configure AI provider, API key, and model |
 
 `[file]` defaults to the `.enth` file in `~/.enthropic/workspace/<project>/`.
 
@@ -90,7 +61,7 @@ Requires Node.js 20+. No telemetry.
 
 `enthropic check` on a valid spec creates:
 
-**`state_[name].enth`** — build progress, updated as you work.
+**`state_[name].enth`** - build progress, updated as you work.
 
 ```
 STATE myapp
@@ -106,20 +77,6 @@ STATE myapp
     STORAGE           PENDING
 ```
 
-## Roadmap
-
-| | |
-|---|---|
-| v0.1 ✅ | Parser, validator, check, context, new, build, update, reverse, state, setup, open/delete, SLSA Level 3 |
-| v0.2 ✅ | `npm install -g enthropic`, automated release pipeline, npm provenance |
-| v0.3 | `DECISIONS` block — architectural choices with rationale. Richer `CONTRACTS` operators |
-| v0.4 | Public spec registry + GitHub Action for `enthropic check` in CI |
-| v0.5 | Stack-aware security patterns injected automatically in `context` |
-
-## Spec
-
-The `.enth` format is defined in [enthropic/SPEC.md](https://github.com/Enthropic-spec/enthropic/blob/main/SPEC.md).
-
 ---
 
 <p align="center">
@@ -127,5 +84,5 @@ The `.enth` format is defined in [enthropic/SPEC.md](https://github.com/Enthropi
   &nbsp;
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-20+-brightgreen.svg" alt="Node.js 20+"/></a>
   &nbsp;
-  <a href="https://www.npmjs.com/package/enthropic"><img src="https://img.shields.io/npm/v/enthropic.svg" alt="npm version"/></a>
+  <a href="https://www.npmjs.com/package/enthropic"><img src="https://img.shields.io/badge/npm-v1.3.0-ffafff.svg" alt="npm v1.3.0"/></a>
 </p>

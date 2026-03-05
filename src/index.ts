@@ -14,9 +14,9 @@ import { setStatus } from './state.js';
 import * as tui from './tui.js';
 import { run as setupRun } from './setup.js';
 import { run as newWizardRun } from './new_wizard.js';
+import { run as guideRun } from './guide.js';
 import { run as buildRun } from './build_cmd.js';
 import { run as initRun } from './init_cmd.js';
-import { runMigrate } from './migrate.js';
 import { resolveSpec } from './utils.js';
 import { getWorkdir, loadConfig } from './global_config.js';
 
@@ -66,7 +66,7 @@ function cmdStateShow(file?: string): boolean {
   }
 
   if (!existsSync(statePath)) {
-    console.error(`${chalk.red('✗')} No state file found. Run 'enthropic validate' first.`);
+    console.error(`${chalk.red('✗')} No state file found. Run 'enthropic check' first.`);
     return false;
   }
   process.stdout.write(readFileSync(statePath, 'utf-8'));
@@ -80,7 +80,7 @@ function cmdStateSet(key: string, status: string, file?: string): boolean {
   const statePath = resolve(dirname(specPath), `state_${name}.enth`);
 
   if (!existsSync(statePath)) {
-    console.error(`${chalk.red('✗')} State file not found: ${statePath}. Run 'enthropic validate' first.`);
+    console.error(`${chalk.red('✗')} State file not found: ${statePath}. Run 'enthropic check' first.`);
     return false;
   }
 
@@ -142,6 +142,8 @@ async function runInteractiveMenu(workdir: string): Promise<void> {
       message: 'Select a command',
       pageSize: 30,
       choices: [
+        new Separator(),
+        { name: tui.pink('guide'.padEnd(11))    + tui.dimmed('Quick start guide — how to use Enthropic from zero'),        value: 'guide',   short: 'guide' },
         { name: tui.pink('setup'.padEnd(11))    + tui.dimmed('Configure AI provider and API key'),                          value: 'setup',   short: 'setup' },
         { name: tui.pink('open'.padEnd(11))     + tui.dimmed('Open a project spec in your editor'),                         value: 'open',    short: 'open' },
         new Separator(),
@@ -164,7 +166,9 @@ async function runInteractiveMenu(workdir: string): Promise<void> {
       process.exit(0);
     }
 
-    if (choice === 'setup') {
+    if (choice === 'guide') {
+      await guideRun();
+    } else if (choice === 'setup') {
        
       await setupRun();
     } else if (choice === 'open') {
@@ -333,20 +337,6 @@ async function main(): Promise<void> {
     .addHelpCommand(false);
 
   program
-    .command('validate [file]')
-    .description('Validate an .enth file (errors + warnings)')
-    .action((file?: string) => {
-      if (!cmdCheck(file)) process.exit(1);
-    });
-
-  program
-    .command('lint [file]')
-    .description('Lint an .enth file (alias for validate)')
-    .action((file?: string) => {
-      if (!cmdCheck(file)) process.exit(1);
-    });
-
-  program
     .command('check [file]')
     .description('Full check: errors and warnings in one view')
     .action((file?: string) => {
@@ -395,29 +385,6 @@ async function main(): Promise<void> {
     .description('Create a new Enthropic project interactively')
     .action(async () => {
       await newWizardRun();
-    });
-
-  program
-    .command('init [dir]')
-    .description('Reverse-engineer an existing codebase into a starter .enth file')
-    .action(async (dir?: string) => {
-      await initRun(dir ?? process.cwd());
-    });
-
-  program
-    .command('build [file]')
-    .description('Start an interactive AI build session for this project')
-    .action(async (file?: string) => {
-      await buildRun(file);
-    });
-
-  program
-    .command('migrate')
-    .description('Compare two .enth specs and produce a human-readable migration report')
-    .requiredOption('--from <file>', 'Source spec file (old version)')
-    .requiredOption('--to <file>', 'Target spec file (new version)')
-    .action((opts: { from: string; to: string }) => {
-      runMigrate(opts.from, opts.to);
     });
 
   // Default: no command → interactive menu

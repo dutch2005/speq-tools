@@ -14,6 +14,8 @@ export interface Layer {
   cannot: string[];
   calls: string[];
   never: string[];
+  boundary?: string;
+  exposes: string[];
   latency?: string;
 }
 
@@ -25,6 +27,7 @@ export interface Contract {
 
 export interface FlowStep {
   number: number;
+  layer?: string;
   subject: string;
   action: string;
 }
@@ -79,6 +82,11 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
+export interface ClassifyEntry {
+  field: string;
+  class: 'credential' | 'pii' | 'sensitive' | 'internal';
+}
+
 export interface PerformanceEntry {
   entity: string;
   cardinality?: string;
@@ -114,6 +122,8 @@ export interface EnthSpec {
   quotas: QuotaEntry[];
   performance: PerformanceEntry[];
   changelog: ChangelogVersion[];
+  classify: ClassifyEntry[];
+  secretScopes: Map<string, string>;
 }
 
 function stripComment(line: string): string {
@@ -151,6 +161,8 @@ function defaultSpec(sourceFile: string): EnthSpec {
     quotas: [],
     performance: [],
     changelog: [],
+    classify: [],
+    secretScopes: new Map(),
   };
 }
 
@@ -206,6 +218,8 @@ export function parse(path: string): EnthSpec {
       i = parseQuotas(lines, i + 1, spec);
     } else if (tok === 'PERFORMANCE') {
       i = parsePerformance(lines, i + 1, spec);
+    } else if (tok === 'CLASSIFY') {
+      i = parseClassify(lines, i + 1, spec);
     } else if (tok === 'CHANGELOG') {
       i = parseChangelog(lines, i + 1, spec);
     } else {
@@ -333,7 +347,7 @@ function parseLayers(lines: string[], start: number, spec: EnthSpec, stopIndent 
       const name = tok;
       current = name;
       spec.layersOrder.push(name);
-      spec.layers.set(name, { name, owns: [], can: [], cannot: [], calls: [], never: [] });
+      spec.layers.set(name, { name, owns: [], can: [], cannot: [], calls: [], never: [], exposes: [] });
     } else if (current !== null) {
       const spaceIdx = tok.search(/\s/);
       if (spaceIdx !== -1) {
@@ -346,6 +360,8 @@ function parseLayers(lines: string[], start: number, spec: EnthSpec, stopIndent 
           case 'CANNOT': layer.cannot = splitList(val); break;
           case 'CALLS': layer.calls = splitList(val); break;
           case 'NEVER': layer.never.push(val); break;
+          case 'BOUNDARY': layer.boundary = val; break;
+          case 'EXPOSES': layer.exposes = splitList(val); break;
           case 'LATENCY': layer.latency = val; break;
         }
       }
@@ -441,11 +457,18 @@ function parseContracts(lines: string[], start: number, spec: EnthSpec): number 
       if (first.endsWith('.') && /^\d+$/.test(first.slice(0, -1))) {
         const num = parseInt(first.slice(0, -1), 10);
         const flow = spec.flows.get(currentFlow)!;
-        const dotIdx = rest.indexOf('.');
+        let stepText = rest;
+        let stepLayer: string | undefined;
+        const layerTagMatch = stepText.match(/^\[([A-Z][A-Z0-9_]*)\]\s*/);
+        if (layerTagMatch) {
+          stepLayer = layerTagMatch[1];
+          stepText = stepText.slice(layerTagMatch[0].length);
+        }
+        const dotIdx = stepText.indexOf('.');
         if (dotIdx !== -1) {
-          flow.steps.push({ number: num, subject: rest.slice(0, dotIdx).trim(), action: rest.slice(dotIdx + 1).trim() });
+          flow.steps.push({ number: num, layer: stepLayer, subject: stepText.slice(0, dotIdx).trim(), action: stepText.slice(dotIdx + 1).trim() });
         } else {
-          flow.steps.push({ number: num, subject: '', action: rest });
+          flow.steps.push({ number: num, layer: stepLayer, subject: '', action: stepText });
         }
       } else {
         const flow = spec.flows.get(currentFlow);
@@ -475,8 +498,16 @@ function parseSecrets(lines: string[], start: number, spec: EnthSpec): number {
     const tok = clean.trim();
     if (!tok) { i++; continue; }
     if (indentLen(clean) === 0) return i;
-    const first = tok.split(/\s+/)[0];
-    if (first) spec.secrets.push(first);
+    const arrowIdx = tok.indexOf('->');
+    const keyPart = (arrowIdx !== -1 ? tok.slice(0, arrowIdx) : tok).trim();
+    const key = keyPart.split(/\s+/)[0];
+    if (key) {
+      spec.secrets.push(key);
+      if (arrowIdx !== -1) {
+        const layer = tok.slice(arrowIdx + 2).trim().split(/\s+/)[0];
+        if (layer) spec.secretScopes.set(key, layer);
+      }
+    }
     i++;
   }
   return i;
@@ -663,6 +694,27 @@ function parsePerformance(lines: string[], start: number, spec: EnthSpec, stopIn
             case 'error-rate': current.constraints.errorRate = val; break;
           }
         }
+      }
+    }
+    i++;
+  }
+  return i;
+}
+
+const VALID_CLASSIFY_CLASSES = new Set(['credential', 'pii', 'sensitive', 'internal']);
+
+function parseClassify(lines: string[], start: number, spec: EnthSpec, stopIndent = 0): number {
+  let i = start;
+  while (i < lines.length) {
+    const clean = stripComment(lines[i]);
+    const tok = clean.trim();
+    if (!tok) { i++; continue; }
+    if (indentLen(clean) <= stopIndent) return i;
+    const parts = tok.split(/\s+/);
+    if (parts.length >= 2) {
+      const cls = parts[1].toLowerCase();
+      if (VALID_CLASSIFY_CLASSES.has(cls)) {
+        spec.classify.push({ field: parts[0], class: cls as ClassifyEntry['class'] });
       }
     }
     i++;

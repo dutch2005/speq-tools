@@ -18,66 +18,104 @@ interface Message {
 }
 
 const SPEC_FORMAT = `
-## .enth Format Reference
+## .enth Format Reference (v0.2)
 
-File starts with: VERSION 0.1.0
+### VERSION (required, must be first non-blank statement)
+VERSION 0.2.0
 
-### PROJECT (required)
+### PROJECT
+PROJECT
   NAME   "project name"
   LANG   python|rust|typescript|go|...
   STACK  comma, separated, tech
   ARCH   layered|event-driven|realtime|hexagonal|...
   DEPS
-    SYSTEM   os-level packages (e.g. tcl-tk, libpq)
+    SYSTEM   os-level packages
     RUNTIME  production dependencies
     DEV      dev-only tools
 
-### VOCABULARY (naming enforcement — prevents drift)
+### VOCABULARY (naming enforcement -- prevents drift)
+VOCABULARY
   PascalCaseName  # never: alternative_names
-  AuthToken       # never: jwt, accessToken
 
 ### ENTITY (domain objects, snake_case)
-  ENTITY user, product, order
+ENTITY user, product, order
 
-### TRANSFORM (relationships between entities)
-  TRANSFORM
-    user -> cart : add_product, remove_product
-    cart -> order : checkout
+### TRANSFORM (valid entity interactions)
+TRANSFORM
+  user -> cart : add_product, remove_product
+  cart -> order : checkout
 
-### SECRETS (key names only — no values)
-  SECRETS
-    DATABASE_URL
-    STRIPE_KEY
+### SECRETS (key names only -- no values, optional layer scope)
+SECRETS
+  DATABASE_URL
+  PAYMENT_KEY -> PAYMENT   # scoped: only PAYMENT layer may access this
 
 ### LAYERS (organizational boundaries)
-  LAYERS
-    API
-      OWNS   http_routing, request_validation
-      CALLS  CORE
-      NEVER  direct_database_access
-    CORE
-      OWNS   business_logic, domain_rules
-      CALLS  STORAGE
-    STORAGE
-      OWNS   persistence, queries
+LAYERS
+  API
+    OWNS     http_routing, request_validation
+    CALLS    CORE
+    NEVER    direct_database_access
+    BOUNDARY external
+    EXPOSES  create_order, get_status
+  CORE
+    OWNS     business_logic, domain_rules
+    CALLS    STORAGE
+  STORAGE
+    OWNS     persistence, queries
+    CALLS    none
 
-### CONTRACTS (behavioral invariants)
-  CONTRACTS
-    payment.*    ALWAYS  server-side
-    admin.*      REQUIRES verified-admin-role
-    FLOW checkout
-      1. cart.validate
-      2. payment.authorize
-      3. order.confirm
-      ROLLBACK  payment.void, order.cancel
-      ATOMIC    true
-      TIMEOUT   30s
+### CLASSIFY (field security classification)
+CLASSIFY
+  user.password   credential    # encrypt at rest, never log, never expose
+  user.email      pii           # data-privacy compliance
+  order.total     sensitive     # owning layer only
+  request_id      internal      # never outside system boundary
 
-## Rules
-- VOCABULARY entries = PascalCase, LAYER names = UPPER_CASE, entities = snake_case
-- All entities referenced in TRANSFORM/LAYERS/CONTRACTS must be declared in ENTITY
-- FLOW steps are numbered and sequential
-- SECRETS declares names only — never values
+### CONTRACTS (behavioral invariants + critical flows)
+CONTRACTS
+  payment.*    ALWAYS    server-side
+  admin.*      REQUIRES  verified-admin-role
+  FLOW checkout
+    1. [API] cart.validate
+    2. [CORE] payment.authorize
+    3. [CORE] order.confirm
+    ROLLBACK  payment.void, order.cancel
+    ATOMIC    true
+    TIMEOUT   30s
+
+### OBSERVABILITY (per-flow logging contracts)
+OBSERVABILITY
+  flow checkout
+    level:        critical
+    must-log:     order_id, user_id
+    must-not-log: payment_token
+    metrics:      checkout_duration, checkout_success_rate
+
+### CHANGELOG (spec evolution)
+CHANGELOG
+  0.2.0
+    ADDED    CLASSIFY block for field security classification
+    BREAKING payment layer renamed to PAYMENT
+
+## Validation rules (violations cause errors)
+- VERSION must be the first non-blank, non-comment statement
+- ENTITY identifiers: snake_case only
+- VOCABULARY entries: PascalCase only
+- LAYER names: UPPER_CASE only
+- Every entity in TRANSFORM, FLOW steps, CONTRACTS must be declared in ENTITY
+- Every layer in CALLS must be declared in LAYERS; use \`none\` when a layer calls nothing
+- CALLS is exclusive: if a layer declares CALLS, calls to any unlisted layer are forbidden
+- FLOW steps numbered from 1, sequential, no gaps, minimum 2 steps
+- FLOW step subject MUST be \`entity.action\` — e.g. \`cart.validate\`, \`payment.authorize\`
+  The part before the dot MUST be a declared entity (snake_case)
+- SECRETS declares names only -- never values
+- Secret scoped with -> restricts access to that layer only
+- CLASSIFY classes: credential | pii | sensitive | internal -- subjects must be declared entities
+- credential fields are implicitly must-not-log in all contexts regardless of OBSERVABILITY
+- At most one layer may declare BOUNDARY external
+- [LAYER_NAME] on FLOW steps must reference a declared layer
 `;
 
 const SYSTEM_CONSULTANT = `You are an Enthropic spec consultant. Your only output is a complete, valid .enth architectural specification — never code, never pseudocode, never prose without a spec block.
@@ -93,16 +131,24 @@ A .enth file is an architectural contract. It is written BEFORE code. Once locke
 6. Warn once: this is a binding contract.
 
 ## Critical rules for generated specs (violations cause validation errors)
-- ENTITY names → snake_case only (e.g. \`user\`, \`payment_subscription\`)
-- VOCABULARY entries → PascalCase only (e.g. \`AuthToken\`, \`SiteBundle\`)
-- LAYER names → UPPER_CASE only (e.g. \`API\`, \`CORE\`, \`STORAGE\`)
+- ENTITY names: snake_case only (e.g. \`user\`, \`payment_subscription\`)
+- VOCABULARY entries: PascalCase only (e.g. \`AuthToken\`, \`SiteBundle\`)
+- LAYER names: UPPER_CASE only (e.g. \`API\`, \`CORE\`, \`STORAGE\`)
 - Every entity referenced in TRANSFORM, FLOW steps, CONTRACTS must be declared in ENTITY
-- Every layer referenced in LAYERS CALLS must be declared in LAYERS
-- LAYERS CALLS none → use the keyword \`none\` when a layer calls nothing
-- FLOW steps are numbered from 1, sequential, no gaps
-- SECRETS declares key names only — never values
-- All subject names in CONTRACTS must match exactly a declared entity or layer name (lowercase)
-- FLOW step subjects must match exactly a declared entity (snake_case) or layer name (lowercase)
+- Every layer referenced in LAYERS CALLS must be declared in LAYERS; use \`none\` when a layer calls nothing
+- CALLS is exclusive: if a layer declares CALLS, any call to an unlisted layer is a contract violation
+- FLOW steps numbered from 1, sequential, no gaps, minimum 2 steps
+- FLOW step subject MUST be \`entity.action\` — e.g. \`cart.validate\`, \`payment.authorize\`.
+  The part before the dot MUST be a declared entity (snake_case). Never write plain action names
+  like \`validate_cart\` or \`process_payment\` as subjects — those are not valid and will fail
+  validation. If no entity fits a step, reconsider the flow or add the missing entity first.
+- SECRETS declares key names only -- never values
+- Secret scoped with -> (e.g. \`API_KEY -> API\`) restricts access to that layer only
+- CLASSIFY classes: credential | pii | sensitive | internal -- subjects must be declared entities
+- credential fields are implicitly must-not-log in all contexts regardless of OBSERVABILITY declarations
+- At most one layer may declare BOUNDARY external
+- [LAYER_NAME] on FLOW steps must reference a declared layer (e.g. \`1. [API] cart.validate\`)
+- CONTRACTS subjects must match declared entity names (snake_case)
 
 ## What makes a good spec
 - Specific, not generic. Real project names, real vocabulary, real boundaries.
@@ -288,7 +334,7 @@ export async function run(file?: string, forceNew = false, workdir = process.cwd
     console.log(sep);
     console.log('  Spec consultant — design your .enth through conversation.');
     console.log();
-    console.log(`  ${tui.dimmed('exit → end session')}`);
+    console.log(`  ${tui.dimmed('type exit to end session')}`);
     console.log(`${sep}\n`);
     printOpener();
   }

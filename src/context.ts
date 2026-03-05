@@ -17,10 +17,16 @@ RULES:
                   Never cross CALLS boundaries.
   FLOWS         — ordered sequences. Execute steps in declared order. Never skip or reorder.
                   On failure, execute ROLLBACK in listed order.
+  SECRETS       — scoped secrets (KEY -> LAYER) are accessible only to the named layer.
+                  Any other layer referencing a scoped secret is a contract violation.
+  CLASSIFY      — credential fields must never appear in logs, responses, or error messages.
+                  This applies in all contexts regardless of OBSERVABILITY declarations.
+                  pii fields require data-privacy compliance. sensitive fields stay in their
+                  owning layer. internal fields must not cross system boundaries.
   OBSERVABILITY — logging constraints. Fields in must-NOT-log must never appear in logs.
                   Fields in must-log must always be logged at the declared level.
-  TESTING       — coverage contracts. required-tests must all be implemented.
-                  coverage target must be met before shipping.
+  BOUNDARY      — the layer declaring BOUNDARY external is the single untrusted entry point.
+                  All input must be validated before crossing any layer boundary.
 
 === PROJECT SPEC ===
 
@@ -48,6 +54,13 @@ export function generate(spec: EnthSpec, statePath?: string): string {
         output += ' (required-review)';
       }
       output += '\n';
+    }
+  }
+
+  if (spec.classify.length > 0) {
+    output += '\n\n=== CLASSIFY ===\n\n';
+    for (const entry of spec.classify) {
+      output += `  ${entry.field.padEnd(28)} ${entry.class}\n`;
     }
   }
 

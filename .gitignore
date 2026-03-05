@@ -6,3 +6,6 @@ bundle/
 .env
 vault_*.enth
 state_*.enth
+
+.vscode/
+package-lock.json
