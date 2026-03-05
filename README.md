@@ -84,5 +84,5 @@ STATE myapp
   &nbsp;
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-20+-brightgreen.svg" alt="Node.js 20+"/></a>
   &nbsp;
-  <a href="https://www.npmjs.com/package/enthropic"><img src="https://img.shields.io/badge/npm-v1.3.0-ffafff.svg" alt="npm v1.3.0"/></a>
+  <a href="https://www.npmjs.com/package/enthropic"><img src="https://img.shields.io/badge/npm-v0.1.3-ffafff.svg" alt="npm v0.1.3"/></a>
 </p>
