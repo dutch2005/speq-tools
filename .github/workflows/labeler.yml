@@ -1,4 +1,4 @@
-name: Label Issues and PRs
+﻿name: Label Issues and PRs
 
 on:
   issues:
@@ -15,7 +15,36 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      # --- AI DETECTION & GAUNTLET (Runs only for AI) ---
+      
+      - name: Detect AI PRs
+        id: ai-detect
+        shell: bash
+        run: |
+          IS_AI="false"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            if echo "${{ github.event.pull_request.title }} ${{ github.event.pull_request.body }} ${{ github.actor }}" | grep -qiE '(jules|claude|agent|ai-bot|gemini|openai|codex|kilo|kilo\.ai)'; then
+              IS_AI="true"
+            fi
+          fi
+          echo "is_ai=$IS_AI" >> $GITHUB_OUTPUT
+
+      - name: 🏷️ Apply AI Label
+        if: steps.ai-detect.outputs.is_ai == 'true'
+        env:
+          GH_TOKEN: 
+        run: |
+          gh pr edit  --add-label "ai-detect" || true
+
+      # --- THE GATE (Approach 1 Toggle) ---
+      - name: ðŸ›‘ AI Gate - Require Human Verification
+        if: steps.ai-detect.outputs.is_ai == 'true' && !contains(github.event.pull_request.labels.*.name, 'human-verified')
+        run: |
+          echo "::error::AI PR detected. This repository requires the 'human-verified' label to merge AI code."
+          exit 1
+
       - uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           sync-labels: true
+

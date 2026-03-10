@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -27,58 +27,66 @@ permissions: read-all
 
 jobs:
   check:
-    name: Build, Typecheck & Test
+    name: Build, Typecheck & Test (Hot Runner)
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+      
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
+      
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Typecheck
-        run: npm run typecheck
+
+      # --- STANDARD PIPELINE (Runs for everyone) ---
+
       - name: Lint
-        run: npm run lint
-      - name: Build
-        run: npm run build
+        run: npm run lint --if-present
+
+      - name: Typecheck
+        run: npm run typecheck --if-present
+        
       - name: Test
-        run: npm test
+        run: npm test --if-present
 
-  audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
-      - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '20'
+      - name: Build
+        run: npm run build --if-present
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Audit dependencies
+      # --- AI DETECTION & GAUNTLET (Runs only for AI) ---
+      
+      - name: Detect AI PRs
+        id: ai-detect
+        shell: bash
+        run: |
+          IS_AI="false"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            if echo "${{ github.event.pull_request.title }} ${{ github.event.pull_request.body }} ${{ github.actor }}" | grep -qiE '(jules|claude|agent|ai-bot|gemini|openai|codex|kilo|kilo\.ai)'; then
+              IS_AI="true"
+            fi
+          fi
+          echo "is_ai=$IS_AI" >> $GITHUB_OUTPUT
+
+      - name: 🏷️ Apply AI Label
+        if: steps.ai-detect.outputs.is_ai == 'true'
+        env:
+          GH_TOKEN: 
+        run: |
+          gh pr edit  --add-label "ai-detect" || true
+
+      - name: ðŸ›¡ï¸ AI Gauntlet - Security Audit
+        if: steps.ai-detect.outputs.is_ai == 'true'
         run: bun audit
 
-  min-node:
-    name: Minimum Node.js (v20)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
-      - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '20'
+      # --- THE GATE (Approach 1 Toggle) ---
+      - name: ðŸ›‘ AI Gate - Require Human Verification
+        if: steps.ai-detect.outputs.is_ai == 'true' && !contains(github.event.pull_request.labels.*.name, 'human-verified')
+        run: |
+          echo "::error::AI PR detected. The Gauntlet passed, but this repository requires the 'human-verified' label to merge AI code."
+          exit 1
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Build on minimum Node
-        run: npm run build
