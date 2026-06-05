@@ -137,19 +137,22 @@ export function setStatus(path: string, key: string, status: string): void {
   }
 
   // BUILT gating (SPEC §7): an entity needs all CHECKS OK (and its AUDIT, if any, OK);
-  // a flow needs all its TESTS OK.
+  // a flow needs all its TESTS OK. Owner match is a prefix match (the row is the owner
+  // itself or one of its dotted children) — not split('.')[0], which breaks on dotted keys.
+  const belongsTo = (rowKey: string, owner: string): boolean =>
+    rowKey === owner || rowKey.startsWith(owner + '.');
   if (upperStatus === 'BUILT') {
     if (target.section === 'ENTITY') {
       const checksNotOk = rows.filter(r => r.section === 'CHECKS' && r.status !== 'OK');
       if (checksNotOk.length > 0) {
         throw new Error(`Cannot mark entity '${key}' BUILT: all CHECKS must be OK first (pending: ${checksNotOk.map(r => r.key).join(', ')}).`);
       }
-      const auditNotOk = rows.filter(r => r.section === 'AUDIT' && r.key.split('.')[0] === key && r.status !== 'OK');
+      const auditNotOk = rows.filter(r => r.section === 'AUDIT' && belongsTo(r.key, key) && r.status !== 'OK');
       if (auditNotOk.length > 0) {
         throw new Error(`Cannot mark entity '${key}' BUILT: its AUDIT contract must be OK first (pending: ${auditNotOk.map(r => r.key).join(', ')}).`);
       }
     } else if (target.section === 'FLOWS') {
-      const testsNotOk = rows.filter(r => r.section === 'TESTS' && r.key.split('.')[0] === key && r.status !== 'OK');
+      const testsNotOk = rows.filter(r => r.section === 'TESTS' && belongsTo(r.key, key) && r.status !== 'OK');
       if (testsNotOk.length > 0) {
         throw new Error(`Cannot mark flow '${key}' BUILT: all its TESTS must be OK first (pending: ${testsNotOk.map(r => r.key).join(', ')}).`);
       }

@@ -134,3 +134,26 @@ describe('state.setStatus — per-section status validity (v0.3 §7)', () => {
     });
   });
 });
+
+describe('state.setStatus — gating uses a robust key match', () => {
+  test('gate is not bypassed by a key whose own name contains a dot', () => {
+    const p = tmpPath();
+    writeFileSync(p, [
+      'STATE demo',
+      '',
+      '  FLOWS',
+      '    auth.login                 PENDING',
+      '',
+      '  TESTS',
+      '    auth.login.coverage        UNVERIFIED',
+      '',
+    ].join('\n'));
+    try {
+      // A naive split('.')[0] would read the owner as 'auth', miss the test row,
+      // and silently let the flow reach BUILT. A prefix match must still gate it.
+      expect(() => setStatus(p, 'auth.login', 'BUILT')).toThrow(/TESTS/);
+    } finally {
+      try { unlinkSync(p); } catch { /* ignore */ }
+    }
+  });
+});
