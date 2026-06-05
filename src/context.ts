@@ -27,6 +27,11 @@ RULES:
                   Fields in must-log must always be logged at the declared level.
   BOUNDARY      — the layer declaring BOUNDARY external is the single untrusted entry point.
                   All input must be validated before crossing any layer boundary.
+  AUDIT         — non-repudiation. Listed operations must emit an immutable, tamper-evident
+                  audit record on every occurrence, including failures and rollbacks. A
+                  credential field must never appear in an audit record; keep it separate from logs.
+  TESTING       — per-flow test contracts. A flow must meet its coverage threshold and cover
+                  every listed category before it can be considered done.
 
 === PROJECT SPEC ===
 
@@ -64,6 +69,13 @@ export function generate(spec: SpeqSpec, statePath?: string): string {
     }
   }
 
+  if (spec.audits.length > 0) {
+    output += '\n\n=== AUDIT ===\n\n';
+    for (const a of spec.audits) {
+      output += `  ${a.subject.padEnd(20)} ${a.fields.join(', ')}\n`;
+    }
+  }
+
   if (spec.observability.size > 0) {
     output += '\n\n=== OBSERVABILITY ===\n\n';
     for (const entry of spec.observability.values()) {
@@ -80,6 +92,9 @@ export function generate(spec: SpeqSpec, statePath?: string): string {
     for (const entry of spec.testing.values()) {
       output += `flow ${entry.flow}\n`;
       if (entry.coverage !== undefined) output += `  coverage: ${entry.coverage}%\n`;
+      if (entry.categories.length > 0) output += `  categories: ${entry.categories.join(', ')}\n`;
+      if (entry.performance.length > 0) output += `  performance: ${entry.performance.join(', ')}\n`;
+      if (entry.fixtures.length > 0) output += `  fixtures: ${entry.fixtures.join(', ')}\n`;
       if (entry.requiredTests.length > 0) output += `  required-tests: ${entry.requiredTests.join(', ')}\n`;
     }
   }
