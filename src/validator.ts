@@ -165,17 +165,95 @@ export function validate(spec: SpeqSpec): ValidationError[] {
     }
   }
 
-  // Extra — OBSERVABILITY level must be critical, standard, or low (spec §OBSERVABILITY)
-  const validLevels = new Set(['critical', 'standard', 'low']);
-  for (const entry of spec.observability.values()) {
-    if (entry.level !== undefined && !validLevels.has(entry.level)) {
-      errors.push({ rule: 19, message: `OBSERVABILITY '${entry.flow}' level must be 'critical', 'standard', or 'low' (got '${entry.level}')`, severity: 'ERROR' });
+  // Rule 19 — Every AUDIT contract subject is a declared entity or uses the * wildcard
+  for (const a of spec.audits) {
+    const base = a.subject.split('.')[0];
+    if (base !== '*' && !entities.has(base)) {
+      errors.push({ rule: 19, message: `AUDIT subject '${a.subject}' references undeclared entity '${base}'`, severity: 'ERROR' });
     }
   }
 
-  // Extra — VERSION must match semver (x.y.z)
+  // Rule 20 — A field classified 'credential' must not appear in any AUDIT field list
+  for (const a of spec.audits) {
+    for (const field of a.fields) {
+      if (credentialFields.has(field)) {
+        errors.push({ rule: 20, message: `AUDIT '${a.subject}' field list contains credential field '${field}'`, severity: 'ERROR' });
+      }
+    }
+  }
+
+  // Rule 21 — Every flow referenced in TESTING is declared in a FLOW block
+  for (const t of spec.testing.values()) {
+    if (!spec.flows.has(t.flow)) {
+      errors.push({ rule: 21, message: `TESTING references undeclared flow '${t.flow}'`, severity: 'ERROR' });
+    }
+  }
+
+  // Rule 22 — TESTING coverage is an integer percentage between 0 and 100
+  for (const t of spec.testing.values()) {
+    if (t.coverage !== undefined && (t.coverage < 0 || t.coverage > 100)) {
+      errors.push({ rule: 22, message: `TESTING flow '${t.flow}' coverage must be between 0 and 100 (got ${t.coverage})`, severity: 'ERROR' });
+    }
+  }
+
+  // Rule 23 — TESTING categories contains only reserved category identifiers
+  const validTestCategories = new Set([
+    'positive', 'negative', 'boundary', 'security', 'fuzzing',
+    'performance', 'concurrency', 'rollback', 'idempotency',
+  ]);
+  for (const t of spec.testing.values()) {
+    for (const cat of t.categories) {
+      if (!validTestCategories.has(cat)) {
+        errors.push({ rule: 23, message: `TESTING flow '${t.flow}' has invalid category '${cat}'`, severity: 'ERROR' });
+      }
+    }
+  }
+
+  // Rule 24 — A FLOW with ATOMIC true and ROLLBACK must include 'rollback' in its categories
+  for (const t of spec.testing.values()) {
+    const flow = spec.flows.get(t.flow);
+    if (flow && flow.atomic === true && flow.rollback.length > 0 && !t.categories.includes('rollback')) {
+      errors.push({ rule: 24, message: `TESTING flow '${t.flow}' must include 'rollback' category (flow is ATOMIC with ROLLBACK)`, severity: 'ERROR' });
+    }
+  }
+
+  // Rule 25 — A FLOW with a declared RETRY value must include 'idempotency' in its categories
+  for (const t of spec.testing.values()) {
+    const flow = spec.flows.get(t.flow);
+    if (flow && flow.retry !== undefined && !t.categories.includes('idempotency')) {
+      errors.push({ rule: 25, message: `TESTING flow '${t.flow}' must include 'idempotency' category (flow declares RETRY)`, severity: 'ERROR' });
+    }
+  }
+
+  // Rule 26 — A FLOW originating at a BOUNDARY external layer must include 'security'.
+  // "Originating" = the [LAYER] tag on the first step. If step 1 is untagged the origin
+  // is undeterminable, so the rule does not apply.
+  const externalBoundaryLayers = new Set(
+    [...spec.layers.values()].filter(l => l.boundary === 'external').map(l => l.name),
+  );
+  for (const t of spec.testing.values()) {
+    const flow = spec.flows.get(t.flow);
+    if (!flow || flow.steps.length === 0) continue;
+    const origin = flow.steps[0].layer;
+    if (origin && externalBoundaryLayers.has(origin) && !t.categories.includes('security')) {
+      errors.push({ rule: 26, message: `TESTING flow '${t.flow}' must include 'security' category (flow originates at BOUNDARY external layer '${origin}')`, severity: 'ERROR' });
+    }
+  }
+
+  // Grammar checks 100+ — tool-specific, NOT part of the SPEC §8 numbered rules (1–26).
+  // Kept out of the 1–26 range so error codes map cleanly back to the spec.
+
+  // Check 101 — OBSERVABILITY level must be critical, standard, or low (spec §OBSERVABILITY)
+  const validLevels = new Set(['critical', 'standard', 'low']);
+  for (const entry of spec.observability.values()) {
+    if (entry.level !== undefined && !validLevels.has(entry.level)) {
+      errors.push({ rule: 101, message: `OBSERVABILITY '${entry.flow}' level must be 'critical', 'standard', or 'low' (got '${entry.level}')`, severity: 'ERROR' });
+    }
+  }
+
+  // Check 102 — VERSION must match semver (x.y.z)
   if (spec.version && !/^\d+\.\d+\.\d+/.test(spec.version)) {
-    errors.push({ rule: 20, message: `VERSION '${spec.version}' must be semver (x.y.z)`, severity: 'ERROR' });
+    errors.push({ rule: 102, message: `VERSION '${spec.version}' must be semver (x.y.z)`, severity: 'ERROR' });
   }
 
   return errors;

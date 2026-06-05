@@ -25,6 +25,11 @@ export interface Contract {
   qualifier: string;
 }
 
+export interface AuditContract {
+  subject: string;     // entity, entity.field, or wildcard (e.g. admin.*)
+  fields: string[];    // reserved meta-fields and/or entity field paths
+}
+
 export interface FlowStep {
   number: number;
   layer?: string;
@@ -64,7 +69,10 @@ export interface ObservabilityEntry {
 export interface TestingEntry {
   flow: string;
   coverage?: number;       // percentage
-  requiredTests: string[];
+  requiredTests: string[]; // legacy (non-spec) key, retained for back-compat
+  categories: string[];    // v0.3 §TESTING — reserved test categories
+  performance: string[];   // v0.3 §TESTING — raw assertions e.g. 'p99:3s'
+  fixtures: string[];      // v0.3 §TESTING — required fixtures
 }
 
 export interface QuotaEntry {
@@ -113,6 +121,7 @@ export interface SpeqSpec {
   layers: Map<string, Layer>;
   layersOrder: string[];
   contracts: Contract[];
+  audits: AuditContract[];
   flows: Map<string, Flow>;
   flowsOrder: string[];
   secrets: string[];
@@ -152,6 +161,7 @@ function defaultSpec(sourceFile: string): SpeqSpec {
     layers: new Map(),
     layersOrder: [],
     contracts: [],
+    audits: [],
     flows: new Map(),
     flowsOrder: [],
     secrets: [],
@@ -446,6 +456,8 @@ function parseContracts(lines: string[], start: number, spec: SpeqSpec): number 
           const [subj, kw, ...rest] = parts;
           if (kw === 'ALWAYS' || kw === 'NEVER' || kw === 'REQUIRES') {
             spec.contracts.push({ subject: subj, keyword: kw, qualifier: rest.join(' ') });
+          } else if (kw === 'AUDIT') {
+            spec.audits.push({ subject: subj, fields: splitList(rest.join(' ')) });
           }
         }
       }
@@ -592,7 +604,7 @@ function parseTesting(lines: string[], start: number, spec: SpeqSpec, stopIndent
       if (tok.startsWith('flow ')) {
         const name = tok.slice('flow '.length).trim();
         current = name;
-        spec.testing.set(name, { flow: name, requiredTests: [] });
+        spec.testing.set(name, { flow: name, requiredTests: [], categories: [], performance: [], fixtures: [] });
       }
     } else if (current !== null) {
       const colonIdx = tok.indexOf(':');
@@ -607,6 +619,9 @@ function parseTesting(lines: string[], start: number, spec: SpeqSpec, stopIndent
             break;
           }
           case 'required-tests': entry.requiredTests = splitList(val); break;
+          case 'categories': entry.categories = splitList(val); break;
+          case 'performance': entry.performance = splitList(val); break;
+          case 'fixtures': entry.fixtures = splitList(val); break;
         }
       }
     }

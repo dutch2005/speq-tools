@@ -250,31 +250,186 @@ describe('validator — rule 18: [LAYER] on steps references declared layer', ()
   });
 });
 
-describe('validator — extra: OBSERVABILITY level', () => {
+describe('validator — rule 19: AUDIT subject declared entity', () => {
+  test('AUDIT on undeclared entity triggers rule 19', () => {
+    const spec = 'VERSION 0.3.0\nENTITY order\nCONTRACTS\n  ghost.action AUDIT actor, timestamp\n';
+    expect(rulesViolated(spec)).toContain(19);
+  });
+  test('AUDIT on declared entity passes rule 19', () => {
+    const spec = 'VERSION 0.3.0\nENTITY order\nCONTRACTS\n  order.checkout AUDIT actor, timestamp\n';
+    expect(rulesViolated(spec)).not.toContain(19);
+  });
+  test('wildcard AUDIT subject passes rule 19', () => {
+    const spec = 'VERSION 0.3.0\nENTITY admin\nCONTRACTS\n  admin.* AUDIT actor, timestamp\n';
+    expect(rulesViolated(spec)).not.toContain(19);
+  });
+});
+
+describe('validator — rule 20: credential field not in AUDIT list', () => {
+  test('credential field in AUDIT list triggers rule 20', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user',
+      'CLASSIFY\n  user.password credential',
+      'CONTRACTS\n  user.login AUDIT actor, user.password',
+    ].join('\n');
+    expect(rulesViolated(spec)).toContain(20);
+  });
+  test('AUDIT list without credential fields passes rule 20', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user',
+      'CLASSIFY\n  user.password credential',
+      'CONTRACTS\n  user.login AUDIT actor, timestamp, outcome',
+    ].join('\n');
+    expect(rulesViolated(spec)).not.toContain(20);
+  });
+});
+
+describe('validator — rule 21: TESTING flow declared', () => {
+  test('TESTING for undeclared flow triggers rule 21', () => {
+    const spec = 'VERSION 0.3.0\nENTITY user\nTESTING\n  flow ghostflow\n    coverage: 80%\n';
+    expect(rulesViolated(spec)).toContain(21);
+  });
+  test('TESTING for declared flow passes rule 21', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end',
+      'TESTING\n  flow f\n    coverage: 80%',
+    ].join('\n');
+    expect(rulesViolated(spec)).not.toContain(21);
+  });
+});
+
+describe('validator — rule 22: TESTING coverage 0–100', () => {
+  test('coverage over 100 triggers rule 22', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end',
+      'TESTING\n  flow f\n    coverage: 150%',
+    ].join('\n');
+    expect(rulesViolated(spec)).toContain(22);
+  });
+  test('valid coverage passes rule 22', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end',
+      'TESTING\n  flow f\n    coverage: 95%',
+    ].join('\n');
+    expect(rulesViolated(spec)).not.toContain(22);
+  });
+});
+
+describe('validator — rule 23: TESTING categories reserved', () => {
+  test('unknown category triggers rule 23', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end',
+      'TESTING\n  flow f\n    categories: positive, boguscat',
+    ].join('\n');
+    expect(rulesViolated(spec)).toContain(23);
+  });
+  test('all reserved categories pass rule 23', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end',
+      'TESTING\n  flow f\n    categories: positive, negative, boundary, security, fuzzing, performance, concurrency, rollback, idempotency',
+    ].join('\n');
+    expect(rulesViolated(spec)).not.toContain(23);
+  });
+});
+
+describe('validator — rule 24: ATOMIC+ROLLBACK requires rollback category', () => {
+  test('missing rollback category triggers rule 24', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end\n    ROLLBACK cart.undo\n    ATOMIC true',
+      'TESTING\n  flow f\n    categories: positive',
+    ].join('\n');
+    expect(rulesViolated(spec)).toContain(24);
+  });
+  test('present rollback category passes rule 24', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end\n    ROLLBACK cart.undo\n    ATOMIC true',
+      'TESTING\n  flow f\n    categories: positive, rollback',
+    ].join('\n');
+    expect(rulesViolated(spec)).not.toContain(24);
+  });
+});
+
+describe('validator — rule 25: RETRY requires idempotency category', () => {
+  test('missing idempotency category triggers rule 25', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end\n    RETRY 2',
+      'TESTING\n  flow f\n    categories: positive',
+    ].join('\n');
+    expect(rulesViolated(spec)).toContain(25);
+  });
+  test('present idempotency category passes rule 25', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end\n    RETRY 2',
+      'TESTING\n  flow f\n    categories: positive, idempotency',
+    ].join('\n');
+    expect(rulesViolated(spec)).not.toContain(25);
+  });
+});
+
+describe('validator — rule 26: BOUNDARY-external origin requires security category', () => {
+  test('flow originating at BOUNDARY external without security triggers rule 26', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'LAYERS\n  API\n    OWNS routing\n    BOUNDARY external',
+      'CONTRACTS\n  FLOW f\n    1. [API] user.start\n    2. [API] cart.end',
+      'TESTING\n  flow f\n    categories: positive',
+    ].join('\n');
+    expect(rulesViolated(spec)).toContain(26);
+  });
+  test('present security category passes rule 26', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'LAYERS\n  API\n    OWNS routing\n    BOUNDARY external',
+      'CONTRACTS\n  FLOW f\n    1. [API] user.start\n    2. [API] cart.end',
+      'TESTING\n  flow f\n    categories: positive, security',
+    ].join('\n');
+    expect(rulesViolated(spec)).not.toContain(26);
+  });
+  test('untagged first step does not trigger rule 26 (origin undeterminable)', () => {
+    const spec = [
+      'VERSION 0.3.0', 'ENTITY user, cart',
+      'LAYERS\n  API\n    OWNS routing\n    BOUNDARY external',
+      'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end',
+      'TESTING\n  flow f\n    categories: positive',
+    ].join('\n');
+    expect(rulesViolated(spec)).not.toContain(26);
+  });
+});
+
+describe('validator — grammar check 101: OBSERVABILITY level (tool-specific, not SPEC §8)', () => {
   const flowSpec = (level: string) => [
     'VERSION 0.2.0', 'ENTITY user, cart',
     'CONTRACTS\n  FLOW f\n    1. user.start\n    2. cart.end',
     `OBSERVABILITY\n  flow f\n    level: ${level}`,
   ].join('\n');
 
-  test('invalid level triggers rule 19', () => {
-    expect(rulesViolated(flowSpec('info'))).toContain(19);
-    expect(rulesViolated(flowSpec('warn'))).toContain(19);
+  test('invalid level triggers check 101', () => {
+    expect(rulesViolated(flowSpec('info'))).toContain(101);
+    expect(rulesViolated(flowSpec('warn'))).toContain(101);
   });
-  test('valid levels pass rule 19', () => {
-    expect(rulesViolated(flowSpec('critical'))).not.toContain(19);
-    expect(rulesViolated(flowSpec('standard'))).not.toContain(19);
-    expect(rulesViolated(flowSpec('low'))).not.toContain(19);
+  test('valid levels pass check 101', () => {
+    expect(rulesViolated(flowSpec('critical'))).not.toContain(101);
+    expect(rulesViolated(flowSpec('standard'))).not.toContain(101);
+    expect(rulesViolated(flowSpec('low'))).not.toContain(101);
   });
 });
 
-describe('validator — extra: VERSION semver', () => {
-  test('non-semver version triggers rule 20', () => {
-    expect(rulesViolated('VERSION 1\nENTITY user\n')).toContain(20);
-    expect(rulesViolated('VERSION v0.2.0\nENTITY user\n')).toContain(20);
+describe('validator — grammar check 102: VERSION semver (tool-specific, not SPEC §8)', () => {
+  test('non-semver version triggers check 102', () => {
+    expect(rulesViolated('VERSION 1\nENTITY user\n')).toContain(102);
+    expect(rulesViolated('VERSION v0.2.0\nENTITY user\n')).toContain(102);
   });
-  test('semver passes rule 20', () => {
-    expect(rulesViolated('VERSION 0.2.0\nENTITY user\n')).not.toContain(20);
+  test('semver passes check 102', () => {
+    expect(rulesViolated('VERSION 0.2.0\nENTITY user\n')).not.toContain(102);
   });
 });
 

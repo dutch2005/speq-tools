@@ -252,3 +252,94 @@ describe('parser — OBSERVABILITY', () => {
     });
   });
 });
+
+describe('parser — AUDIT contracts (v0.3)', () => {
+  test('captures AUDIT subject and field list', () => {
+    const spec = [
+      'VERSION 0.3.0',
+      'ENTITY order, payment',
+      'CONTRACTS',
+      '  order.checkout  AUDIT  actor, timestamp, target, outcome',
+      '  payment.charge  AUDIT  actor, payload-hash',
+    ].join('\n');
+    withSpec(spec, (p) => {
+      const s = parse(p);
+      expect(s.audits).toHaveLength(2);
+      const checkout = s.audits.find(a => a.subject === 'order.checkout')!;
+      expect(checkout.fields).toEqual(['actor', 'timestamp', 'target', 'outcome']);
+      const charge = s.audits.find(a => a.subject === 'payment.charge')!;
+      expect(charge.fields).toContain('payload-hash');
+    });
+  });
+
+  test('AUDIT is not stored as an ALWAYS/NEVER/REQUIRES contract', () => {
+    const spec = [
+      'VERSION 0.3.0',
+      'ENTITY order',
+      'CONTRACTS',
+      '  order.checkout AUDIT actor, timestamp',
+    ].join('\n');
+    withSpec(spec, (p) => {
+      const s = parse(p);
+      expect(s.contracts.find(c => c.keyword === 'AUDIT')).toBeUndefined();
+      expect(s.audits).toHaveLength(1);
+    });
+  });
+
+  test('wildcard AUDIT subject is captured', () => {
+    const spec = [
+      'VERSION 0.3.0',
+      'ENTITY admin',
+      'CONTRACTS',
+      '  admin.*  AUDIT  actor, timestamp, action, signature',
+    ].join('\n');
+    withSpec(spec, (p) => {
+      const a = parse(p).audits.find(x => x.subject === 'admin.*')!;
+      expect(a.fields).toContain('signature');
+    });
+  });
+});
+
+describe('parser — TESTING (v0.3)', () => {
+  test('captures coverage, categories, performance, fixtures', () => {
+    const spec = [
+      'VERSION 0.3.0',
+      'ENTITY user, cart',
+      'CONTRACTS',
+      '  FLOW checkout',
+      '    1. user.start',
+      '    2. cart.end',
+      'TESTING',
+      '  flow checkout',
+      '    coverage:    95%',
+      '    categories:  positive, negative, rollback',
+      '    performance: p99:3s, throughput:50rps',
+      '    fixtures:    valid_cart, declined_card',
+    ].join('\n');
+    withSpec(spec, (p) => {
+      const t = parse(p).testing.get('checkout')!;
+      expect(t.coverage).toBe(95);
+      expect(t.categories).toEqual(['positive', 'negative', 'rollback']);
+      expect(t.performance).toEqual(['p99:3s', 'throughput:50rps']);
+      expect(t.fixtures).toEqual(['valid_cart', 'declined_card']);
+    });
+  });
+
+  test('legacy required-tests key is still captured (additive, non-spec)', () => {
+    const spec = [
+      'VERSION 0.3.0',
+      'ENTITY user, cart',
+      'CONTRACTS',
+      '  FLOW checkout',
+      '    1. user.start',
+      '    2. cart.end',
+      'TESTING',
+      '  flow checkout',
+      '    required-tests: unit, e2e',
+    ].join('\n');
+    withSpec(spec, (p) => {
+      const t = parse(p).testing.get('checkout')!;
+      expect(t.requiredTests).toEqual(['unit', 'e2e']);
+    });
+  });
+});
