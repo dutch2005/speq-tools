@@ -6,6 +6,7 @@ import type { SpeqSpec } from './parser.js';
 import { validate } from './validator.js';
 import { lint } from './lint.js';
 import { generate as generateState } from './state.js';
+import { specBaseName } from './utils.js';
 import * as tui from './tui.js';
 
 export interface CheckResult {
@@ -27,7 +28,7 @@ export function check(spec: SpeqSpec): CheckResult[] {
 
 function projectName(spec: SpeqSpec, path: string): string {
   const val = spec.project.get('NAME');
-  const raw = val?.kind === 'str' ? val.value : path.replace(/\.speq$/, '').split('/').pop() ?? 'project';
+  const raw = val?.kind === 'str' ? val.value : (specBaseName(path) || 'project');
   return raw.replace(/^"|"$/g, '').toLowerCase().replace(/ /g, '_');
 }
 
