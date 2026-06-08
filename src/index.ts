@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
-import { resolve, dirname, join } from 'path';
+import { resolve, dirname, join, basename } from 'path';
 import { tmpdir } from 'os';
 import { execSync, spawnSync } from 'child_process';
 import chalk from 'chalk';
@@ -17,12 +17,12 @@ import { run as newWizardRun } from './new_wizard.js';
 import { run as guideRun } from './guide.js';
 import { run as buildRun } from './build_cmd.js';
 import { run as initRun } from './init_cmd.js';
-import { resolveSpec } from './utils.js';
+import { resolveSpec, specBaseName } from './utils.js';
 import { getWorkdir, loadConfig } from './global_config.js';
 
 function projectName(spec: SpeqSpec, path: string): string {
   const val = spec.project.get('NAME');
-  const raw = val?.kind === 'str' ? val.value : path.replace(/\.speq$/, '').split('/').pop() ?? 'project';
+  const raw = val?.kind === 'str' ? val.value : (specBaseName(path) || 'project');
   return raw.replace(/^"|"$/g, '').toLowerCase().replace(/ /g, '_');
 }
 
@@ -49,8 +49,8 @@ function cmdContext(file?: string, out?: string): boolean {
 function cmdStateShow(file?: string): boolean {
   let statePath: string;
   if (file) {
-    const basename = file.split('/').pop() ?? '';
-    if (basename.startsWith('state_')) {
+    const base = basename(file);
+    if (base.startsWith('state_')) {
       statePath = resolve(file);
     } else {
       const path = resolveSpec(file);
@@ -241,7 +241,7 @@ async function runInteractiveMenu(workdir: string): Promise<void> {
         try {
           const spec = parse(file);
           const projectNm = spec.project.get('NAME');
-          const nm = projectNm?.kind === 'str' ? projectNm.value.replace(/"/g, '') : file.split('/').pop()?.replace('.speq', '') ?? 'project';
+          const nm = projectNm?.kind === 'str' ? projectNm.value.replace(/"/g, '') : (specBaseName(file) || 'project');
           const dir = dirname(file);
           const stateCand = resolve(dir, `state_${nm}.speq`);
           const statePath = existsSync(stateCand) ? stateCand : undefined;
@@ -265,7 +265,7 @@ async function runInteractiveMenu(workdir: string): Promise<void> {
         // inner loop: stay in state until user goes back
          
         while (true) {
-          const projectName = specFile.split('/').slice(-2, -1)[0] ?? specFile;
+          const projectName = basename(dirname(specFile));
            
           const sub = await select({
             message: tui.pink('state') + tui.dimmed(`  ${projectName}`),
@@ -297,8 +297,8 @@ async function runInteractiveMenu(workdir: string): Promise<void> {
        
       const specFile = await pickEnthFile(workdir, 'Delete which project?', true);
       if (specFile) {
-        const projectDir = specFile.split('/').slice(0, -1).join('/');
-        const projectName = specFile.split('/').slice(-2, -1)[0] ?? specFile;
+        const projectDir = dirname(specFile);
+        const projectName = basename(dirname(specFile));
         console.log();
         tui.printError(`  This will permanently delete:  ${projectDir}`);
         console.log();
