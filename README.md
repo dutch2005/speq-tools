@@ -19,7 +19,7 @@
 
 A `.speq` file is the architectural contract of your project. Entities, constraints, layer boundaries, naming conventions. Write it once. Every AI session reads it before touching a single line of code.
 
-The CLI validates your spec, tracks build progress, and produces the context block you paste into any AI assistant. Have an existing codebase? `speq reverse` reads it and generates a starter spec.
+The CLI validates your spec, tracks build progress, and produces the context block you paste into any AI assistant. Have an existing codebase? The interactive `reverse` action reads it and generates a starter spec.
 
 ## Install
 
@@ -43,21 +43,21 @@ Requires Node.js 20+. No telemetry.
 
 ## Commands
 
-All commands are also available interactively - just run `speq`.
+Run `speq` with no arguments for the interactive menu, which exposes every command below. Commands marked *(interactive only)* are currently available **only** from that menu — not yet as a direct `speq <command>` invocation.
 
 | Command | Description |
 |---|---|
-| `speq guide` | quick start guide for new users |
 | `speq new` | create a new `.speq` spec with AI |
-| `speq update [file]` | refine an existing spec with AI |
 | `speq check [file]` | validate + lint, errors and warnings grouped by severity |
 | `speq context [file]` | generate the AI context block from your spec and state |
 | `speq state show [file]` | show build progress *(automation in progress)* |
-| `speq state set <entity> <status> [file]` | update entity status *(automation in progress)* |
-| `speq reverse [dir]` | reverse-engineer a codebase into a starter spec *(in development)* |
-| `speq open` | open a project in `$EDITOR` |
-| `speq delete` | delete a project |
+| `speq state set <key> <status> [file]` | update an entry's status *(automation in progress)* |
 | `speq setup` | configure AI provider, API key, and model |
+| `guide` | quick start guide for new users *(interactive only)* |
+| `update [file]` | refine an existing spec with AI *(interactive only)* |
+| `reverse [dir]` | reverse-engineer a codebase into a starter spec *(interactive only, in development)* |
+| `open` | view a project spec in a new terminal *(interactive only)* |
+| `delete` | delete a project and all its files *(interactive only)* |
 
 `[file]` defaults to the `.speq` file in `~/.speq/workspace/<project>/`.
 
