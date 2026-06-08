@@ -286,7 +286,7 @@ async function runInteractiveMenu(workdir: string): Promise<void> {
              
             const key = await tui.input('Key to update');
              
-            const status = await tui.input('New status  (pending / in_progress / done / blocked)');
+            const status = await tui.input('New status  (PENDING / PARTIAL / BUILT  ·  UNVERIFIED / OK / FAILED)');
             try { cmdStateSet(key, status, specFile); } catch (e) { tui.printError(String(e)); }
              
             await tui.pressEnter();
@@ -353,7 +353,7 @@ async function main(): Promise<void> {
         .argument('[file]', 'State file or spec file')
         .description('Show the current build state')
         .action((file?: string) => {
-          cmdStateShow(file);
+          if (!cmdStateShow(file)) process.exit(1);
         }),
     )
     .addCommand(
@@ -363,7 +363,7 @@ async function main(): Promise<void> {
         .argument('[file]', '.speq spec file')
         .description('Update a single entry status in the state file')
         .action((key: string, status: string, file?: string) => {
-          cmdStateSet(key, status, file);
+          if (!cmdStateSet(key, status, file)) process.exit(1);
         }),
     );
 
